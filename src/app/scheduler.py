@@ -1,7 +1,6 @@
 from time import time
 from threading import Thread, Event, Lock
-from queue import PriorityQueue
-from queue import Empty
+from queue import PriorityQueue, Empty
 import itertools
 
 
@@ -69,10 +68,3 @@ class Scheduler(Thread):
             # очередь пуста, ждем задачи
             except Empty:
                 self.new_task.wait(10)
-
-
-
-
-
-
-

@@ -2,9 +2,6 @@ from urllib.request import Request, urlopen
 from bs4 import BeautifulSoup
 
 
-import datetime
-
-
 def creation_url(search_phrase, region):
     list_search_words = search_phrase.split()
     q = "+".join(list_search_words)

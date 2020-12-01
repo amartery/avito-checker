@@ -1,30 +1,29 @@
 import uvicorn
 import uuid
 import datetime
-import asyncio
 
 from fastapi import FastAPI
 
-from src.app.input import AddInput
+# from src.app.input import AddInput
+# from src.app.db import DataBase
+# from src.app.scheduler import Scheduler
 
-from src.app.db import add_counter
-from src.app.db import registration_pair_in_db
-from src.app.db import get_date_registration
-from src.app.db import find_statistics_with_limit
-
-from src.app.scheduler import Scheduler
-
+from app.input import AddInput
+from app.db import DataBase
+from app.scheduler import Scheduler
 
 app = FastAPI(title="Avito-checker")
 
 scheduler = Scheduler()
 scheduler.start()
 
+db = DataBase()
+
 
 def update_task(id_pair):
-    timestamp = datetime.datetime.now()  # .strftime('%H:%M:%S')
+    timestamp = datetime.datetime.now()
     value = 100  # приходит из парсера
-    add_counter(id_pair, value, timestamp)
+    db.add_counter(id_pair, value, timestamp)
     scheduler.schedule_task(60, update_task, (id_pair,))  # 3600 сек = 1 час
 
 
@@ -51,9 +50,9 @@ def add(input_data: AddInput) -> dict:
     if search_phrase == "" or region == "":
         return {"error": "input data cannot be empty"}
 
-    id_pair = str(uuid.uuid4())  # generate random sequence with uuid
-    date_registration = datetime.datetime.now()  # .strftime('%H:%M:%S')
-    registration_pair_in_db(id_pair, search_phrase, region, date_registration)
+    id_pair = str(uuid.uuid4())
+    date_registration = datetime.datetime.now()
+    db.registration_pair_in_db(id_pair, search_phrase, region, date_registration)
 
     update_task(id_pair)
     return {"id_pair": id_pair}
@@ -76,26 +75,19 @@ def stat(id_pair: str, interval: int) -> dict:
     Returns
     -------
     dict
-        a dict of dicts like {
-            {
-                "number_of_ads": value,
-                "timestamp": timestamp,
-            }...}
+        a dict like {"statistics": [some statistics]}
     """
     if interval < 1:
         return {"error": "interval should be > 0"}
 
-    date_registration = get_date_registration(id_pair)
+    date_registration = db.get_date_registration(id_pair)
     if not date_registration:
         return {"error": "invalid id_pair"}
+
     limit = date_registration + datetime.timedelta(minutes=interval)  # hours=interval
-
-    list_statistics = find_statistics_with_limit(id_pair, limit)
-
+    list_statistics = db.find_statistics_with_limit(id_pair, limit)
     return {"statistics": list_statistics}
 
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000)
-    loop = asyncio.get_event_loop()
-    loop.run_forever()
+# if __name__ == "__main__":
+#     uvicorn.run("main:app", host="127.0.0.1", port=8000)
