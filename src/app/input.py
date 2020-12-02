@@ -3,8 +3,7 @@ from pydantic import Field
 
 
 class AddInput(BaseModel):
-    """
-    A class used to represent the data model of method Add
+    """A class used to represent the data model of method Add
     Attributes
     ----------
     search_phrase: str

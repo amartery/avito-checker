@@ -4,13 +4,10 @@ import datetime
 
 from fastapi import FastAPI
 
-# from src.app.input import AddInput
-# from src.app.db import DataBase
-# from src.app.scheduler import Scheduler
-
 from app.input import AddInput
 from app.db import DataBase
 from app.scheduler import Scheduler
+from app.parser import Parser
 
 app = FastAPI(title="Avito-checker")
 
@@ -19,12 +16,14 @@ scheduler.start()
 
 db = DataBase()
 
+parser = Parser()
 
-def update_task(id_pair):
+
+def update_task(id_pair, search_phrase, region):
     timestamp = datetime.datetime.now()
-    value = 100  # приходит из парсера
+    value = parser.get_number_of_proposals(search_phrase, region)  # приходит из парсера
     db.add_counter(id_pair, value, timestamp)
-    scheduler.schedule_task(60, update_task, (id_pair,))  # 3600 сек = 1 час
+    scheduler.schedule_task(60, update_task, (id_pair, search_phrase, region,))  # 3600 сек = 1 час
 
 
 @app.post(
@@ -33,7 +32,7 @@ def update_task(id_pair):
     description="Add pair <search phrase, region> to database",
 )
 def add(input_data: AddInput) -> dict:
-    """It takes two parameters (search phrase, region)
+    """It takes one parameter (class AddInput)
     and returns the id_pair (unique identifier of the pair <search phrase, region>)
     Parameters
     ----------
@@ -54,7 +53,11 @@ def add(input_data: AddInput) -> dict:
     date_registration = datetime.datetime.now()
     db.registration_pair_in_db(id_pair, search_phrase, region, date_registration)
 
-    update_task(id_pair)
+    update_task(id_pair, search_phrase, region)
+
+    top_5_ads = parser.get_top5(search_phrase, region)
+    db.add_top5(id_pair, date_registration, top_5_ads)
+
     return {"id_pair": id_pair}
 
 
@@ -88,6 +91,32 @@ def stat(id_pair: str, interval: int) -> dict:
     list_statistics = db.find_statistics_with_limit(id_pair, limit)
     return {"statistics": list_statistics}
 
+
+@app.get(
+    "/top5/",
+    response_description="Top 5 ads for the search phrase",
+    description="Top 5 ads on the avito site for pair with id pair",
+)
+def top5(id_pair: str) -> dict:
+    """It takes one parameters (id pair)
+    and returns dict with top 5 ads on the avito site for pair with id pair
+    Parameters
+    ----------
+    :param id_pair:  str
+        unique identifier of the pair <search phrase, region> (max_length=56)
+    Returns
+    -------
+    dict
+        a dict like {
+            "id_pair": id_pair,
+            "top": top
+        }
+    """
+    result = db.get_top5_from_db(id_pair)
+    if result:
+        return result
+    else:
+        return {"error": "invalid id_pair"}
 
 # if __name__ == "__main__":
 #     uvicorn.run("main:app", host="127.0.0.1", port=8000)
